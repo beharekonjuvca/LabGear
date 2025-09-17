@@ -12,13 +12,18 @@ import {
   message,
   Popconfirm,
   Card,
+  Grid,
 } from "antd";
 import { UploadOutlined } from "@ant-design/icons";
 import ItemsAPI from "../api/items";
 
 const API_ORIGIN = import.meta.env.VITE_API_ORIGIN || "http://localhost:4000";
+const { useBreakpoint } = Grid;
 
 export default function Items() {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
+
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -60,9 +65,63 @@ export default function Items() {
     load();
   }, []);
 
-  const columns = useMemo(
-    () => [
-      { title: "ID", dataIndex: "id", width: 70 },
+  const columns = useMemo(() => {
+    if (isMobile) {
+      // Compact columns on small screens
+      return [
+        { title: "ID", dataIndex: "id", width: 60, fixed: "left" },
+        {
+          title: "Img",
+          dataIndex: "imageUrl",
+          width: 76,
+          render: (v) =>
+            v ? (
+              <img
+                src={`${API_ORIGIN}${v}`}
+                alt="item"
+                style={{
+                  width: 56,
+                  height: 42,
+                  objectFit: "cover",
+                  borderRadius: 6,
+                }}
+              />
+            ) : (
+              "-"
+            ),
+        },
+        { title: "Name", dataIndex: "name", ellipsis: true },
+        { title: "Code", dataIndex: "code", width: 120, ellipsis: true },
+        {
+          title: "Avail",
+          dataIndex: "available",
+          width: 80,
+          render: (v) => (v ? "Yes" : "No"),
+        },
+        {
+          title: "Actions",
+          width: 160,
+          render: (_, r) => (
+            <Space wrap size="small">
+              <Button size="small" onClick={() => openEdit(r)}>
+                Edit
+              </Button>
+              <Popconfirm
+                title="Delete this item?"
+                onConfirm={() => doDelete(r.id)}
+              >
+                <Button size="small" danger>
+                  Delete
+                </Button>
+              </Popconfirm>
+            </Space>
+          ),
+        },
+      ];
+    }
+
+    return [
+      { title: "ID", dataIndex: "id", width: 70, fixed: "left" },
       {
         title: "Image",
         dataIndex: "imageUrl",
@@ -107,15 +166,13 @@ export default function Items() {
           </Space>
         ),
       },
-    ],
-    []
-  );
+    ];
+  }, [isMobile]);
 
   const openAdd = () => {
     setEditing(null);
     setFileList([]);
     form.resetFields();
-    // defaults
     form.setFieldsValue({ available: true });
     setOpen(true);
   };
@@ -184,7 +241,7 @@ export default function Items() {
       if (e?.response?.status === 409) {
         message.error("Code must be unique");
       } else if (e?.errorFields) {
-        // antd form validation error
+        // form validation error
       } else {
         message.error("Save failed");
       }
@@ -196,14 +253,14 @@ export default function Items() {
       <Card
         title="Items"
         extra={
-          <Space>
+          <Space wrap>
             <Input.Search
               placeholder="Search name/code/category"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onSearch={() => load({ page: 1 })}
               allowClear
-              style={{ width: 260 }}
+              style={{ width: isMobile ? 180 : 260 }}
             />
             <Button type="primary" onClick={openAdd}>
               Add Item
@@ -216,11 +273,15 @@ export default function Items() {
           dataSource={data}
           columns={columns}
           loading={loading}
+          size={isMobile ? "small" : "middle"}
+          sticky
+          scroll={{ x: isMobile ? 720 : undefined }} // horizontal scroll on phones
           pagination={{
             current: page,
             pageSize: limit,
             total,
-            showSizeChanger: true,
+            showSizeChanger: !isMobile,
+            responsive: true,
           }}
           onChange={(p) => {
             const next = p.current;
@@ -294,10 +355,31 @@ export default function Items() {
 
               <Form.Item
                 name="image_url"
-                rules={[{ type: "url", message: "Enter a valid URL" }]}
+                // relaxed validator: allow empty, http(s), or /uploads/...
+                rules={[
+                  () => ({
+                    validator(_, v) {
+                      if (!v) return Promise.resolve();
+                      const own =
+                        typeof v === "string" && v.startsWith("/uploads/");
+                      const http =
+                        typeof v === "string" && /^https?:\/\//i.test(v);
+                      return own || http
+                        ? Promise.resolve()
+                        : Promise.reject(
+                            new Error(
+                              "Enter a valid URL (http(s) or /uploads/…)"
+                            )
+                          );
+                    },
+                  }),
+                ]}
                 style={{ marginBottom: 0 }}
               >
-                {/* <Input placeholder="https://… or /uploads/items/…" /> */}
+                <Input
+                  placeholder="https://… or /uploads/items/…"
+                  disabled={fileList.length > 0}
+                />
               </Form.Item>
             </Space>
           </Form.Item>

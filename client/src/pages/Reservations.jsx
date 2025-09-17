@@ -11,6 +11,9 @@ import {
   Table,
   Tag,
   message,
+  Grid,
+  Row,
+  Col,
 } from "antd";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
@@ -22,8 +25,12 @@ import Layout from "../components/Layout";
 import { isStaffOrAdmin } from "../utils/auth";
 
 const { RangePicker } = DatePicker;
+const { useBreakpoint } = Grid;
 
 export default function Reservations() {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md; // < md = mobile/tablet portrait
+
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -91,9 +98,30 @@ export default function Reservations() {
     return <Tag color={map[s] || "default"}>{s}</Tag>;
   };
 
-  const columns = useMemo(
-    () => [
-      { title: "ID", dataIndex: "id", width: 70 },
+  // Columns adapt to screen size
+  const columns = useMemo(() => {
+    if (isMobile) {
+      return [
+        { title: "ID", dataIndex: "id", width: 70, fixed: "left" },
+        { title: "Item", dataIndex: "itemId", width: 80 },
+        { title: "User", dataIndex: "userId", width: 80 },
+        {
+          title: "When",
+          key: "when",
+          render: (_, r) => (
+            <span>
+              {new Date(r.startDate).toLocaleString()} →{" "}
+              {new Date(r.endDate).toLocaleString()}
+            </span>
+          ),
+          ellipsis: true,
+        },
+        { title: "Status", dataIndex: "status", render: statusTag, width: 110 },
+      ];
+    }
+    // desktop / md+
+    return [
+      { title: "ID", dataIndex: "id", width: 70, fixed: "left" },
       { title: "Item ID", dataIndex: "itemId", width: 90 },
       { title: "User ID", dataIndex: "userId", width: 90 },
       {
@@ -112,14 +140,16 @@ export default function Reservations() {
         width: 220,
         render: (_, r) =>
           isStaffOrAdmin() ? (
-            <Space>
+            <Space wrap>
               <Button
+                size="small"
                 disabled={!(r.status === "PENDING")}
                 onClick={() => approve(r.id)}
               >
                 Approve
               </Button>
               <Button
+                size="small"
                 danger
                 disabled={!(r.status === "PENDING" || r.status === "APPROVED")}
                 onClick={() => cancel(r.id)}
@@ -129,9 +159,8 @@ export default function Reservations() {
             </Space>
           ) : null,
       },
-    ],
-    []
-  );
+    ];
+  }, [isMobile]);
 
   const approve = async (id) => {
     try {
@@ -236,42 +265,53 @@ export default function Reservations() {
           </Button>
         }
       >
+        {/* Filters row: stack on small screens */}
         <div className="mb-3">
-          <Space wrap>
-            <Select
-              allowClear
-              placeholder="Status"
-              value={status}
-              onChange={setStatus}
-              options={["PENDING", "APPROVED", "CANCELLED", "CONVERTED"].map(
-                (s) => ({ value: s, label: s })
-              )}
-              style={{ width: 160 }}
-            />
-            <RangePicker
-              value={listRange}
-              onChange={setListRange}
-              showTime
-              placeholder={["From", "To"]}
-            />
-            <Input.Search
-              placeholder="Search user/item"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onSearch={() => load({ page: 1 })}
-              allowClear
-              style={{ width: 240 }}
-            />
-            <Button
-              onClick={() => {
-                setStatus(undefined);
-                setQ("");
-                setListRange(null);
-              }}
-            >
-              Reset
-            </Button>
-          </Space>
+          <Row gutter={[8, 8]}>
+            <Col xs={24} sm={12} md="auto">
+              <Select
+                allowClear
+                placeholder="Status"
+                value={status}
+                onChange={setStatus}
+                options={["PENDING", "APPROVED", "CANCELLED", "CONVERTED"].map(
+                  (s) => ({ value: s, label: s })
+                )}
+                style={{ width: isMobile ? "100%" : 160 }}
+              />
+            </Col>
+            <Col xs={24} sm={12} md="auto">
+              <RangePicker
+                value={listRange}
+                onChange={setListRange}
+                showTime
+                placeholder={["From", "To"]}
+                style={{ width: isMobile ? "100%" : 280 }}
+              />
+            </Col>
+            <Col xs={24} sm={16} md="auto">
+              <Input.Search
+                placeholder="Search user/item"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                onSearch={() => load({ page: 1 })}
+                allowClear
+                style={{ width: isMobile ? "100%" : 240 }}
+              />
+            </Col>
+            <Col xs={24} sm={8} md="auto">
+              <Button
+                style={{ width: isMobile ? "100%" : "auto" }}
+                onClick={() => {
+                  setStatus(undefined);
+                  setQ("");
+                  setListRange(null);
+                }}
+              >
+                Reset
+              </Button>
+            </Col>
+          </Row>
         </div>
 
         <Table
@@ -279,11 +319,15 @@ export default function Reservations() {
           dataSource={rows}
           columns={columns}
           loading={loading}
+          size={isMobile ? "small" : "middle"}
+          sticky
+          scroll={{ x: isMobile ? 720 : undefined }} // horizontal scroll fallback on small screens
           pagination={{
             current: page,
             pageSize: limit,
             total,
-            showSizeChanger: true,
+            showSizeChanger: !isMobile, // simpler pagination on phones
+            responsive: true,
           }}
           onChange={(p) => {
             const next = p.current;

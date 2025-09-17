@@ -11,6 +11,9 @@ import {
   Table,
   Tag,
   message,
+  Grid,
+  Row,
+  Col,
 } from "antd";
 import dayjs from "dayjs";
 
@@ -19,8 +22,12 @@ import ReservationsAPI from "../api/reservations";
 import Layout from "../components/Layout";
 
 const { RangePicker } = DatePicker;
+const { useBreakpoint } = Grid;
 
 export default function Loans() {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
+
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -83,9 +90,48 @@ export default function Loans() {
     return <Tag color={map[s] || "default"}>{s}</Tag>;
   };
 
-  const columns = useMemo(
-    () => [
-      { title: "ID", dataIndex: "id", width: 70 },
+  const columns = useMemo(() => {
+    if (isMobile) {
+      return [
+        { title: "ID", dataIndex: "id", width: 60, fixed: "left" },
+        { title: "Item", dataIndex: "itemId", width: 80 },
+        { title: "User", dataIndex: "userId", width: 80 },
+        {
+          title: "When",
+          key: "when",
+          ellipsis: true,
+          render: (_, r) => (
+            <span>
+              {new Date(r.checkoutAt).toLocaleString()} →{" "}
+              {new Date(r.dueAt).toLocaleString()}
+              {r.returnedAt ? (
+                <>
+                  <br />
+                  Returned: {new Date(r.returnedAt).toLocaleString()}
+                </>
+              ) : null}
+            </span>
+          ),
+        },
+        { title: "Status", dataIndex: "status", render: statusTag, width: 110 },
+        {
+          title: "Actions",
+          width: 120,
+          render: (_, r) => (
+            <Button
+              size="small"
+              disabled={r.status !== "ACTIVE"}
+              onClick={() => returnLoan(r.id)}
+            >
+              Return
+            </Button>
+          ),
+        },
+      ];
+    }
+
+    return [
+      { title: "ID", dataIndex: "id", width: 70, fixed: "left" },
       {
         title: "Reservation",
         dataIndex: "reservationId",
@@ -124,9 +170,8 @@ export default function Loans() {
           </Space>
         ),
       },
-    ],
-    []
-  );
+    ];
+  }, [isMobile]);
 
   const returnLoan = async (id) => {
     try {
@@ -191,44 +236,53 @@ export default function Loans() {
           </Button>
         }
       >
-        {/* Filters */}
         <div className="mb-3">
-          <Space wrap>
-            <Select
-              allowClear
-              placeholder="Status"
-              value={status}
-              onChange={setStatus}
-              options={["ACTIVE", "RETURNED", "OVERDUE"].map((s) => ({
-                value: s,
-                label: s,
-              }))}
-              style={{ width: 160 }}
-            />
-            <RangePicker
-              value={range}
-              onChange={setRange}
-              showTime
-              placeholder={["From", "To"]}
-            />
-            <Input.Search
-              placeholder="Search user/item"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onSearch={() => load({ page: 1 })}
-              allowClear
-              style={{ width: 240 }}
-            />
-            <Button
-              onClick={() => {
-                setStatus(undefined);
-                setQ("");
-                setRange(null);
-              }}
-            >
-              Reset
-            </Button>
-          </Space>
+          <Row gutter={[8, 8]}>
+            <Col xs={24} sm={12} md="auto">
+              <Select
+                allowClear
+                placeholder="Status"
+                value={status}
+                onChange={setStatus}
+                options={["ACTIVE", "RETURNED", "OVERDUE"].map((s) => ({
+                  value: s,
+                  label: s,
+                }))}
+                style={{ width: isMobile ? "100%" : 160 }}
+              />
+            </Col>
+            <Col xs={24} sm={12} md="auto">
+              <RangePicker
+                value={range}
+                onChange={setRange}
+                showTime
+                placeholder={["From", "To"]}
+                style={{ width: isMobile ? "100%" : 280 }}
+              />
+            </Col>
+            <Col xs={24} sm={16} md="auto">
+              <Input.Search
+                placeholder="Search user/item"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                onSearch={() => load({ page: 1 })}
+                allowClear
+                style={{ width: isMobile ? "100%" : 240 }}
+              />
+            </Col>
+            <Col xs={24} sm={8} md="auto">
+              <Button
+                style={{ width: isMobile ? "100%" : "auto" }}
+                onClick={() => {
+                  setStatus(undefined);
+                  setQ("");
+                  setRange(null);
+                }}
+              >
+                Reset
+              </Button>
+            </Col>
+          </Row>
         </div>
 
         <Table
@@ -236,11 +290,15 @@ export default function Loans() {
           dataSource={rows}
           columns={columns}
           loading={loading}
+          size={isMobile ? "small" : "middle"}
+          sticky
+          scroll={{ x: isMobile ? 720 : undefined }}
           pagination={{
             current: page,
             pageSize: limit,
             total,
-            showSizeChanger: true,
+            showSizeChanger: !isMobile,
+            responsive: true,
           }}
           onChange={(p) => {
             const next = p.current;
