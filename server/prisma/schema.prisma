@@ -58,6 +58,7 @@ model Item {
   conditionNote String?
   available     Boolean        @default(true)
   createdAt     DateTime       @default(now())
+  imageUrl      String? 
   reservations  Reservation[]
   loans         Loan[]
   labels        ItemLabel[]

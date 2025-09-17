@@ -19,6 +19,18 @@ import ReservationsAPI from "../api/reservations";
 import dayjs from "dayjs";
 import Layout from "../components/Layout";
 import isBetween from "dayjs/plugin/isBetween";
+const API_ORIGIN = import.meta.env.VITE_API_ORIGIN || "http://localhost:4000";
+const PLACEHOLDER_IMG =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(`
+  <svg xmlns="http://www.w3.org/2000/svg" width="640" height="360">
+    <rect width="100%" height="100%" fill="#f3f4f6"/>
+    <g fill="#9ca3af" text-anchor="middle" font-family="sans-serif">
+      <rect x="220" y="110" width="200" height="140" rx="8" fill="#e5e7eb"/>
+      <text x="320" y="310" font-size="18">No image</text>
+    </g>
+  </svg>`);
+
 dayjs.extend(isBetween);
 
 const { RangePicker } = DatePicker;
@@ -167,27 +179,50 @@ export default function ItemsBrowse() {
         {items.map((item) => (
           <Col key={item.id} xs={24} sm={12} md={8} lg={6}>
             <Card
-              title={item.name}
+              title={item.name || "—"}
               extra={
                 <Tag color={item.available ? "green" : "red"}>
                   {item.available ? "Available" : "Out"}
                 </Tag>
+              }
+              cover={
+                <img
+                  src={
+                    item.imageUrl
+                      ? `${API_ORIGIN}${item.imageUrl}`
+                      : PLACEHOLDER_IMG
+                  }
+                  alt={item.name || "item"}
+                  style={{ height: 160, objectFit: "cover" }}
+                  loading="lazy"
+                />
               }
               actions={[
                 <Button type="link" onClick={() => openDrawer(item)}>
                   View / Reserve
                 </Button>,
               ]}
+              bodyStyle={{ minHeight: 120 }}
             >
-              <div className="text-sm text-gray-500">Code: {item.code}</div>
               <div className="text-sm text-gray-500">
-                Category: {item.category}
+                <strong>Code:</strong>{" "}
+                <span className="line-clamp-1">{item.code || "—"}</span>
               </div>
-              {item.conditionNote && (
-                <div className="text-sm mt-1">
-                  Condition: {item.conditionNote}
-                </div>
-              )}
+              <div className="text-sm text-gray-500">
+                <strong>Category:</strong>{" "}
+                <span className="line-clamp-1">{item.category || "—"}</span>
+              </div>
+              <div
+                className="text-sm mt-1 text-gray-700"
+                style={{
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }}
+              >
+                <strong>Condition:</strong> {item.conditionNote || "—"}
+              </div>
             </Card>
           </Col>
         ))}
@@ -214,7 +249,20 @@ export default function ItemsBrowse() {
             {activeItem.conditionNote && (
               <div className="mb-3">Condition: {activeItem.conditionNote}</div>
             )}
-
+            {activeItem?.imageUrl && (
+              <div className="mb-4">
+                <img
+                  src={`${API_ORIGIN}${activeItem.imageUrl}`}
+                  alt={activeItem.name}
+                  style={{
+                    width: "100%",
+                    maxHeight: 240,
+                    objectFit: "cover",
+                    borderRadius: 8,
+                  }}
+                />
+              </div>
+            )}
             <Card
               size="small"
               className="mb-4"

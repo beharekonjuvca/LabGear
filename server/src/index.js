@@ -1,11 +1,16 @@
 import "dotenv/config";
-import express from "express";
 import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 
 import { config } from "./config.js";
 import { testDb } from "./prisma.js";
+
+import path from "path";
+import { fileURLToPath } from "url";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+import express from "express";
 
 import authRoutes from "./routes/auth.js";
 import itemRoutes from "./routes/items.js";
@@ -15,6 +20,7 @@ import dashboardRoutes from "./routes/dashboard.js";
 import usersRoutes from "./routes/users.js";
 
 const app = express();
+app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 app.use(helmet());
 app.use(cors({ origin: config.corsOrigin, credentials: true }));
 app.use(express.json());
