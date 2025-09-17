@@ -4,6 +4,7 @@ import {
   Card,
   DatePicker,
   Form,
+  Input,
   Modal,
   Select,
   Space,
@@ -11,23 +12,47 @@ import {
   Tag,
   message,
 } from "antd";
+import dayjs from "dayjs";
+
 import LoansAPI from "../api/loans";
 import ReservationsAPI from "../api/reservations";
 import Layout from "../components/Layout";
+
+const { RangePicker } = DatePicker;
 
 export default function Loans() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  const [status, setStatus] = useState();
+  const [q, setQ] = useState("");
+  const [range, setRange] = useState(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [total, setTotal] = useState(0);
+
   const [open, setOpen] = useState(false);
   const [approvedReservations, setApprovedReservations] = useState([]);
+  const [selectedRes, setSelectedRes] = useState(null);
   const [form] = Form.useForm();
 
-  const load = async (status) => {
+  const load = async (opts = {}) => {
     setLoading(true);
     try {
-      const res = await LoansAPI.list(status);
+      const from = range?.[0]?.toISOString();
+      const to = range?.[1]?.toISOString();
+      const res = await LoansAPI.list({
+        page: opts.page ?? page,
+        limit: opts.limit ?? limit,
+        status,
+        from,
+        to,
+        q,
+      });
       setRows(res.data || []);
+      setTotal(res.total || 0);
+      setPage(res.page || 1);
+      setLimit(res.limit || 10);
     } catch {
       message.error("Failed to load loans");
     } finally {
@@ -40,14 +65,18 @@ export default function Loans() {
       const r = await ReservationsAPI.listApproved();
       setApprovedReservations(r);
     } catch {
-      // ignore
+      /* ignore */
     }
   };
 
   useEffect(() => {
-    load();
+    load({ page: 1 });
     loadApproved();
   }, []);
+
+  useEffect(() => {
+    load({ page: 1 });
+  }, [status, q, range]);
 
   const statusTag = (s) => {
     const map = { ACTIVE: "processing", RETURNED: "success", OVERDUE: "error" };
@@ -111,6 +140,26 @@ export default function Loans() {
     }
   };
 
+  const onReservationChange = (id) => {
+    form.setFieldsValue({ reservation_id: id });
+    setSelectedRes(approvedReservations.find((r) => r.id === id) || null);
+  };
+
+  const validateDue = (_, v) => {
+    if (!v) return Promise.reject(new Error("Pick due date"));
+    const now = dayjs();
+    if (!v.isAfter(now, "minute"))
+      return Promise.reject(new Error("Due must be in the future"));
+    if (selectedRes) {
+      const resEnd = dayjs(selectedRes.endDate);
+      if (!v.isAfter(resEnd, "minute"))
+        return Promise.reject(
+          new Error("Due must be after the reservation end")
+        );
+    }
+    return Promise.resolve();
+  };
+
   const submit = async () => {
     try {
       const vals = await form.validateFields();
@@ -121,8 +170,8 @@ export default function Loans() {
       message.success("Loan created");
       setOpen(false);
       form.resetFields();
+      setSelectedRes(null);
       load();
-      // refresh approved list because this reservation becomes CONVERTED
       loadApproved();
     } catch (e) {
       if (e?.response?.status === 404) message.error("Reservation not found");
@@ -142,17 +191,74 @@ export default function Loans() {
           </Button>
         }
       >
+        {/* Filters */}
+        <div className="mb-3">
+          <Space wrap>
+            <Select
+              allowClear
+              placeholder="Status"
+              value={status}
+              onChange={setStatus}
+              options={["ACTIVE", "RETURNED", "OVERDUE"].map((s) => ({
+                value: s,
+                label: s,
+              }))}
+              style={{ width: 160 }}
+            />
+            <RangePicker
+              value={range}
+              onChange={setRange}
+              showTime
+              placeholder={["From", "To"]}
+            />
+            <Input.Search
+              placeholder="Search user/item"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onSearch={() => load({ page: 1 })}
+              allowClear
+              style={{ width: 240 }}
+            />
+            <Button
+              onClick={() => {
+                setStatus(undefined);
+                setQ("");
+                setRange(null);
+              }}
+            >
+              Reset
+            </Button>
+          </Space>
+        </div>
+
         <Table
           rowKey="id"
           dataSource={rows}
           columns={columns}
           loading={loading}
+          pagination={{
+            current: page,
+            pageSize: limit,
+            total,
+            showSizeChanger: true,
+          }}
+          onChange={(p) => {
+            const next = p.current;
+            const size = p.pageSize;
+            setPage(next);
+            setLimit(size);
+            load({ page: next, limit: size });
+          }}
         />
 
         <Modal
           open={open}
           title="Checkout Item"
-          onCancel={() => setOpen(false)}
+          onCancel={() => {
+            setOpen(false);
+            form.resetFields();
+            setSelectedRes(null);
+          }}
           onOk={submit}
           okText="Create Loan"
         >
@@ -160,7 +266,7 @@ export default function Loans() {
             <Form.Item
               name="reservation_id"
               label="Approved Reservation"
-              rules={[{ required: true }]}
+              rules={[{ required: true, message: "Select a reservation" }]}
             >
               <Select
                 placeholder="Select approved reservation"
@@ -178,16 +284,25 @@ export default function Loans() {
                     .toLowerCase()
                     .includes(input.toLowerCase())
                 }
+                onChange={onReservationChange}
               />
             </Form.Item>
 
             <Form.Item
               name="due_at"
               label="Due date & time"
-              rules={[{ required: true, message: "Pick due date" }]}
+              rules={[{ validator: validateDue }]}
             >
-              <DatePicker showTime />
+              <DatePicker showTime className="w-full" />
             </Form.Item>
+
+            {selectedRes && (
+              <div className="text-sm text-gray-600">
+                Reservation window:{" "}
+                {new Date(selectedRes.startDate).toLocaleString()} →{" "}
+                {new Date(selectedRes.endDate).toLocaleString()}
+              </div>
+            )}
           </Form>
         </Modal>
       </Card>

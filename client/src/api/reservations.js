@@ -1,8 +1,15 @@
 import api from "./axios";
 
 const ReservationsAPI = {
-  list() {
-    return api.get("/reservations").then((r) => r.data);
+  list({ page = 1, limit = 10, status, itemId, userId, from, to, q } = {}) {
+    const params = { page, limit };
+    if (status) params.status = status;
+    if (itemId) params.itemId = itemId;
+    if (userId) params.userId = userId;
+    if (from) params.from = from;
+    if (to) params.to = to;
+    if (q) params.q = q;
+    return api.get("/reservations", { params }).then((r) => r.data);
   },
   create({ item_id, start_date, end_date }) {
     return api

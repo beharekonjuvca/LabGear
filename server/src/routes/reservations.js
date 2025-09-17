@@ -37,17 +37,67 @@ router.post("/", auth, async (req, res) => {
 
 // list
 router.get("/", auth, async (req, res) => {
-  if (req.user.role === "MEMBER") {
-    const rows = await prisma.reservation.findMany({
-      where: { userId: req.user.id },
-      orderBy: { createdAt: "desc" },
-    });
-    return res.json({ data: rows });
+  const page = Math.max(parseInt(req.query.page || "1", 10), 1);
+  const limit = Math.min(
+    Math.max(parseInt(req.query.limit || "10", 10), 1),
+    100
+  );
+  const skip = (page - 1) * limit;
+
+  const status = (req.query.status || "").trim() || undefined;
+  const itemId = req.query.itemId ? Number(req.query.itemId) : undefined;
+  const userIdQ = req.query.userId ? Number(req.query.userId) : undefined;
+  const fromStr = req.query.from && String(req.query.from);
+  const toStr = req.query.to && String(req.query.to);
+  const q = (req.query.q || "").trim();
+
+  const from = fromStr ? new Date(fromStr) : undefined;
+  const to = toStr ? new Date(toStr) : undefined;
+
+  // Base where with role restriction
+  const where = {
+    ...(req.user.role === "MEMBER" ? { userId: req.user.id } : {}),
+    ...(status ? { status } : {}),
+    ...(itemId ? { itemId } : {}),
+    ...(req.user.role !== "MEMBER" && userIdQ ? { userId: userIdQ } : {}),
+  };
+
+  // Date-window overlap filter if range provided:
+  // overlap if NOT (end < from OR start > to)
+  if (from || to) {
+    where.NOT = [
+      ...(from ? [{ endDate: { lt: from } }] : []),
+      ...(to ? [{ startDate: { gt: to } }] : []),
+    ];
   }
-  const rows = await prisma.reservation.findMany({
-    orderBy: { createdAt: "desc" },
-  });
-  res.json({ data: rows });
+
+  // Optional "q" search across joined fields (simple contains)
+  const search = q
+    ? {
+        OR: [
+          { user: { fullName: { contains: q } } },
+          { user: { email: { contains: q } } },
+          { item: { name: { contains: q } } },
+          { item: { code: { contains: q } } },
+        ],
+      }
+    : {};
+
+  const [data, total] = await Promise.all([
+    prisma.reservation.findMany({
+      where: { ...where, ...search },
+      include: {
+        user: { select: { fullName: true, email: true } },
+        item: { select: { name: true, code: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.reservation.count({ where: { ...where, ...search } }),
+  ]);
+
+  res.json({ data, page, limit, total });
 });
 
 // approve / cancel (staff/admin)

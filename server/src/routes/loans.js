@@ -39,10 +39,64 @@ router.post("/", auth, requireRole("STAFF", "ADMIN"), async (req, res) => {
 
 // list loans
 router.get("/", auth, async (req, res) => {
-  const status = req.query.status;
-  const where = status ? { status } : {};
-  const rows = await prisma.loan.findMany({ where, orderBy: { id: "desc" } });
-  res.json({ data: rows });
+  const page = Math.max(parseInt(req.query.page || "1", 10), 1);
+  const limit = Math.min(
+    Math.max(parseInt(req.query.limit || "10", 10), 1),
+    100
+  );
+  const skip = (page - 1) * limit;
+
+  const status = (req.query.status || "").trim() || undefined;
+  const itemId = req.query.itemId ? Number(req.query.itemId) : undefined;
+  const userIdQ = req.query.userId ? Number(req.query.userId) : undefined;
+  const fromStr = req.query.from && String(req.query.from);
+  const toStr = req.query.to && String(req.query.to);
+  const q = (req.query.q || "").trim();
+
+  const from = fromStr ? new Date(fromStr) : undefined;
+  const to = toStr ? new Date(toStr) : undefined;
+
+  const where = {
+    ...(req.user.role === "MEMBER" ? { userId: req.user.id } : {}),
+    ...(status ? { status } : {}),
+    ...(itemId ? { itemId } : {}),
+    ...(req.user.role !== "MEMBER" && userIdQ ? { userId: userIdQ } : {}),
+  };
+
+  // overlap on checkoutAt..dueAt
+  if (from || to) {
+    where.NOT = [
+      ...(from ? [{ dueAt: { lt: from } }] : []),
+      ...(to ? [{ checkoutAt: { gt: to } }] : []),
+    ];
+  }
+
+  const search = q
+    ? {
+        OR: [
+          { user: { fullName: { contains: q } } },
+          { user: { email: { contains: q } } },
+          { item: { name: { contains: q } } },
+          { item: { code: { contains: q } } },
+        ],
+      }
+    : {};
+
+  const [data, total] = await Promise.all([
+    prisma.loan.findMany({
+      where: { ...where, ...search },
+      include: {
+        user: { select: { fullName: true, email: true } },
+        item: { select: { name: true, code: true } },
+      },
+      orderBy: { id: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.loan.count({ where: { ...where, ...search } }),
+  ]);
+
+  res.json({ data, page, limit, total });
 });
 
 // return loan
