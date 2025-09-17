@@ -15,16 +15,27 @@ router.get("/", auth, async (req, res) => {
   );
   const skip = (page - 1) * limit;
   const search = (req.query.search || "").trim();
+  const category = (req.query.category || "").trim();
+  const available =
+    req.query.available === "true"
+      ? true
+      : req.query.available === "false"
+      ? false
+      : undefined;
 
-  const where = search
-    ? {
-        OR: [
-          { name: { contains: search } },
-          { code: { contains: search } },
-          { category: { contains: search } },
-        ],
-      }
-    : {};
+  const where = {
+    ...(search
+      ? {
+          OR: [
+            { name: { contains: search } },
+            { code: { contains: search } },
+            { category: { contains: search } },
+          ],
+        }
+      : {}),
+    ...(category ? { category } : {}),
+    ...(available === undefined ? {} : { available }),
+  };
 
   const [data, total] = await Promise.all([
     prisma.item.findMany({ where, take: limit, skip, orderBy: { id: "desc" } }),
@@ -92,7 +103,48 @@ router.put(
     res.json({ message: "Updated" });
   }
 );
+router.get("/:id/availability", auth, async (req, res) => {
+  const id = Number(req.params.id);
+  const from = req.query.from
+    ? new Date(req.query.from)
+    : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const to = req.query.to
+    ? new Date(req.query.to)
+    : new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
 
+  const reservations = await prisma.reservation.findMany({
+    where: {
+      itemId: id,
+      status: { in: ["PENDING", "APPROVED"] },
+      NOT: [{ endDate: { lt: from } }, { startDate: { gt: to } }],
+    },
+    select: { startDate: true, endDate: true, status: true },
+  });
+
+  const loans = await prisma.loan.findMany({
+    where: {
+      itemId: id,
+      status: "ACTIVE",
+      NOT: [{ dueAt: { lt: from } }, { checkoutAt: { gt: to } }],
+    },
+    select: { checkoutAt: true, dueAt: true },
+  });
+
+  const blocks = [
+    ...reservations.map((r) => ({
+      start: r.startDate,
+      end: r.endDate,
+      type: r.status,
+    })),
+    ...loans.map((l) => ({
+      start: l.checkoutAt,
+      end: l.dueAt,
+      type: "ACTIVE_LOAN",
+    })),
+  ];
+
+  res.json({ itemId: id, blocks });
+});
 router.delete("/:id", auth, requireRole("ADMIN"), async (req, res) => {
   const id = Number(req.params.id);
   await prisma.item.delete({ where: { id } });

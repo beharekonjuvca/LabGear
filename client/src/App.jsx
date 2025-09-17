@@ -6,6 +6,7 @@ import Items from "./pages/Items.jsx";
 import Reservations from "./pages/Reservations.jsx";
 import Loans from "./pages/Loans.jsx";
 import { getUser, isStaffOrAdmin } from "./utils/auth";
+import ItemsBrowse from "./pages/ItemsBrowse.jsx";
 
 function PrivateRoute({ children }) {
   const t = localStorage.getItem("accessToken");
@@ -57,6 +58,14 @@ export default function App() {
               <StaffOnly>
                 <Loans />
               </StaffOnly>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/browse"
+          element={
+            <PrivateRoute>
+              <ItemsBrowse />
             </PrivateRoute>
           }
         />

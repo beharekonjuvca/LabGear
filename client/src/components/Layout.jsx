@@ -16,6 +16,7 @@ export default function Layout({ children }) {
       key: "/reservations",
       label: <Link to="/reservations">Reservations</Link>,
     },
+    { key: "/browse", label: <Link to="/browse">Browse</Link> },
     ...(isStaff
       ? [
           { key: "/items", label: <Link to="/items">Items</Link> },
