@@ -378,9 +378,12 @@ export default function Reservations() {
             >
               <RangePicker
                 showTime
-                disabledDate={disabledDate}
                 className="w-full"
                 placeholder={["Start", "End"]}
+                disabledDate={disabledDate /* where applicable */}
+                dropdownClassName={isMobile ? "rp-mobile" : undefined}
+                placement="bottomLeft"
+                inputReadOnly={isMobile}
               />
             </Form.Item>
 

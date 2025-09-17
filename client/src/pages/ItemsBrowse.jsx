@@ -13,6 +13,7 @@ import {
   DatePicker,
   Tag,
   message,
+  Grid,
 } from "antd";
 import ItemsAPI from "../api/items";
 import ReservationsAPI from "../api/reservations";
@@ -49,6 +50,9 @@ export default function ItemsBrowse() {
   const [blocks, setBlocks] = useState([]);
   const [form] = Form.useForm();
 
+  const { useBreakpoint } = Grid;
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const load = async () => {
     setLoading(true);
     try {
@@ -288,8 +292,12 @@ export default function ItemsBrowse() {
                 >
                   <RangePicker
                     showTime
-                    disabledDate={disabledDate}
                     className="w-full"
+                    placeholder={["Start", "End"]}
+                    disabledDate={disabledDate /* where applicable */}
+                    dropdownClassName={isMobile ? "rp-mobile" : undefined}
+                    placement="bottomLeft"
+                    inputReadOnly={isMobile}
                   />
                 </Form.Item>
                 <Space>

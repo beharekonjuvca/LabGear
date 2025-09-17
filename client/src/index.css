@@ -8,3 +8,17 @@ body,
   height: 100%;
   margin: 0;
 }
+@media (max-width: 480px) {
+  .rp-mobile .ant-picker-panels {
+    flex-direction: column;
+  }
+  .rp-mobile .ant-picker-panel {
+    width: 100% !important;
+  }
+  .rp-mobile .ant-picker-time-panel {
+    width: 100%;
+  }
+  .rp-mobile .ant-picker-dropdown {
+    max-width: 94vw;
+  }
+}
