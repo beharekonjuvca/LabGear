@@ -23,6 +23,7 @@ export default function Layout({ children }) {
           { key: "/loans", label: <Link to="/loans">Loans</Link> },
         ]
       : []),
+    { key: "/profile", label: <Link to="/profile">Profile</Link> },
   ];
 
   return (

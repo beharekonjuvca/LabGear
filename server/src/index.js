@@ -12,6 +12,7 @@ import itemRoutes from "./routes/items.js";
 import reservationRoutes from "./routes/reservations.js";
 import loanRoutes from "./routes/loans.js";
 import dashboardRoutes from "./routes/dashboard.js";
+import usersRoutes from "./routes/users.js";
 
 const app = express();
 app.use(helmet());
@@ -26,6 +27,7 @@ app.use("/api/items", itemRoutes);
 app.use("/api/reservations", reservationRoutes);
 app.use("/api/loans", loanRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/users", usersRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);
