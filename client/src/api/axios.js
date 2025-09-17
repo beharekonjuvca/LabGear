@@ -2,12 +2,17 @@ import axios from "axios";
 
 const api = axios.create({
   baseURL: "http://localhost:4000/api",
-  withCredentials: true, // send cookies (refresh token)
+  withCredentials: true,
 });
 
-// auto-refresh on 401
+api.interceptors.request.use((cfg) => {
+  const t = localStorage.getItem("accessToken");
+  if (t) cfg.headers["Authorization"] = `Bearer ${t}`;
+  return cfg;
+});
+
 api.interceptors.response.use(
-  (res) => res,
+  (r) => r,
   async (err) => {
     const orig = err.config;
     if (err.response?.status === 401 && !orig._retry) {
@@ -18,24 +23,19 @@ api.interceptors.response.use(
           {},
           { withCredentials: true }
         );
-        const newToken = r.data.accessToken;
-        localStorage.setItem("accessToken", newToken);
-        api.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
-        orig.headers["Authorization"] = `Bearer ${newToken}`;
+        const token = r.data.accessToken;
+        localStorage.setItem("accessToken", token);
+        api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+        orig.headers["Authorization"] = `Bearer ${token}`;
         return api(orig);
       } catch {
         localStorage.removeItem("accessToken");
+        localStorage.removeItem("user");
         window.location.href = "/login";
       }
     }
     return Promise.reject(err);
   }
 );
-
-api.interceptors.request.use((cfg) => {
-  const t = localStorage.getItem("accessToken");
-  if (t) cfg.headers["Authorization"] = `Bearer ${t}`;
-  return cfg;
-});
 
 export default api;

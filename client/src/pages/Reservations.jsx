@@ -14,6 +14,7 @@ import {
 import ReservationsAPI from "../api/reservations";
 import ItemsAPI from "../api/items";
 import Layout from "../components/Layout";
+import { isStaffOrAdmin } from "../utils/auth";
 
 export default function Reservations() {
   const [rows, setRows] = useState([]);
@@ -77,23 +78,24 @@ export default function Reservations() {
       {
         title: "Actions",
         width: 220,
-        render: (_, r) => (
-          <Space>
-            <Button
-              disabled={!(r.status === "PENDING")}
-              onClick={() => approve(r.id)}
-            >
-              Approve
-            </Button>
-            <Button
-              danger
-              disabled={!(r.status === "PENDING" || r.status === "APPROVED")}
-              onClick={() => cancel(r.id)}
-            >
-              Cancel
-            </Button>
-          </Space>
-        ),
+        render: (_, r) =>
+          isStaffOrAdmin() ? (
+            <Space>
+              <Button
+                disabled={!(r.status === "PENDING")}
+                onClick={() => approve(r.id)}
+              >
+                Approve
+              </Button>
+              <Button
+                danger
+                disabled={!(r.status === "PENDING" || r.status === "APPROVED")}
+                onClick={() => cancel(r.id)}
+              >
+                Cancel
+              </Button>
+            </Space>
+          ) : null,
       },
     ],
     []

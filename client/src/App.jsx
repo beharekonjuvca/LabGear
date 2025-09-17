@@ -1,12 +1,19 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login.jsx";
+import Register from "./pages/Register.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Items from "./pages/Items.jsx";
 import Reservations from "./pages/Reservations.jsx";
 import Loans from "./pages/Loans.jsx";
+import { getUser, isStaffOrAdmin } from "./utils/auth";
+
 function PrivateRoute({ children }) {
   const t = localStorage.getItem("accessToken");
   return t ? children : <Navigate to="/login" />;
+}
+
+function StaffOnly({ children }) {
+  return isStaffOrAdmin() ? children : <Navigate to="/" />;
 }
 
 export default function App() {
@@ -14,6 +21,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         <Route
           path="/"
           element={
@@ -22,14 +30,7 @@ export default function App() {
             </PrivateRoute>
           }
         />
-        <Route
-          path="/items"
-          element={
-            <PrivateRoute>
-              <Items />
-            </PrivateRoute>
-          }
-        />
+        {/* Members can see Reservations; Actions are gated in the page */}
         <Route
           path="/reservations"
           element={
@@ -38,11 +39,24 @@ export default function App() {
             </PrivateRoute>
           }
         />
+        {/* Staff/Admin only */}
+        <Route
+          path="/items"
+          element={
+            <PrivateRoute>
+              <StaffOnly>
+                <Items />
+              </StaffOnly>
+            </PrivateRoute>
+          }
+        />
         <Route
           path="/loans"
           element={
             <PrivateRoute>
-              <Loans />
+              <StaffOnly>
+                <Loans />
+              </StaffOnly>
             </PrivateRoute>
           }
         />

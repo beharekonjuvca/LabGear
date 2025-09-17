@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Form, Input, Button, Card } from "antd";
-import api from "../api/axios.js";
+import { Form, Input, Button, Card, message } from "antd";
+import api from "../api/axios";
+import { setAuth } from "../utils/auth";
 
 export default function Login() {
   const [loading, setLoading] = useState(false);
@@ -8,11 +9,12 @@ export default function Login() {
   const onFinish = async (vals) => {
     setLoading(true);
     try {
-      const res = await api.post("/auth/login", vals);
-      localStorage.setItem("accessToken", res.data.accessToken);
+      const { data } = await api.post("/auth/login", vals);
+      setAuth(data); // store accessToken + user
+      message.success("Welcome!");
       window.location.href = "/";
-    } catch (e) {
-      alert("Login failed");
+    } catch {
+      message.error("Login failed");
     } finally {
       setLoading(false);
     }
@@ -20,17 +22,28 @@ export default function Login() {
 
   return (
     <div className="flex items-center justify-center h-screen">
-      <Card title="Login" style={{ width: 300 }}>
-        <Form onFinish={onFinish}>
-          <Form.Item name="email" rules={[{ required: true }]}>
+      <Card title="Login" style={{ width: 320 }}>
+        <Form onFinish={onFinish} layout="vertical">
+          <Form.Item
+            name="email"
+            label="Email"
+            rules={[{ required: true }, { type: "email" }]}
+          >
             <Input placeholder="Email" />
           </Form.Item>
-          <Form.Item name="password" rules={[{ required: true }]}>
+          <Form.Item
+            name="password"
+            label="Password"
+            rules={[{ required: true }]}
+          >
             <Input.Password placeholder="Password" />
           </Form.Item>
           <Button type="primary" htmlType="submit" loading={loading} block>
             Login
           </Button>
+          <div className="mt-2 text-sm">
+            New here? <a href="/register">Create account</a>
+          </div>
         </Form>
       </Card>
     </div>

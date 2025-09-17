@@ -1,33 +1,44 @@
 import { Layout as AntLayout, Menu } from "antd";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { clearAuth, getUser, isStaffOrAdmin } from "../utils/auth";
 
 const { Header, Content, Sider } = AntLayout;
 
 export default function Layout({ children }) {
   const navigate = useNavigate();
+  const loc = useLocation();
+  const user = getUser();
+  const isStaff = isStaffOrAdmin();
 
   const items = [
-    { key: "dashboard", label: <Link to="/">Dashboard</Link> },
-    { key: "items", label: <Link to="/items">Items</Link> },
+    { key: "/", label: <Link to="/">Dashboard</Link> },
     {
-      key: "reservations",
+      key: "/reservations",
       label: <Link to="/reservations">Reservations</Link>,
     },
-    { key: "loans", label: <Link to="/loans">Loans</Link> },
+    ...(isStaff
+      ? [
+          { key: "/items", label: <Link to="/items">Items</Link> },
+          { key: "/loans", label: <Link to="/loans">Loans</Link> },
+        ]
+      : []),
   ];
 
   return (
     <AntLayout style={{ minHeight: "100vh" }}>
       <Sider theme="light">
-        <Menu mode="inline" defaultSelectedKeys={["dashboard"]} items={items} />
+        <div className="p-4 font-bold">LabGear</div>
+        <Menu mode="inline" selectedKeys={[loc.pathname]} items={items} />
       </Sider>
       <AntLayout>
         <Header style={{ background: "#fff", padding: "0 16px" }}>
-          <span className="font-bold">LabGear</span>
+          <span className="font-semibold">
+            Hello{user ? `, ${user.full_name}` : ""}
+          </span>
           <button
             className="float-right"
             onClick={() => {
-              localStorage.clear();
+              clearAuth();
               navigate("/login");
             }}
           >
